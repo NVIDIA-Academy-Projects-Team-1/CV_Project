@@ -2,6 +2,33 @@ import json
 import glob
 import os
 from tqdm import tqdm
+from pathlib import Path
+
+
+"""
+Label information
+
+0: 폭행
+1: 실신
+2: 기물파손
+3: 절도
+4: 주취
+5: 이동상인
+6: 몰카
+7: 자전거 승차
+
+"""
+
+annotation_labels = {
+    0: "폭행",
+    1: "실신",
+    2: "기물파손",
+    3: "절도",
+    4: "주취",
+    5: "이동상인",
+    6: "몰카",
+    7: "자전거 승차",
+}
 
 def generate_annotation():
     original_width = 3840
@@ -27,11 +54,11 @@ def generate_annotation():
                     width = label['width']
                     height = label['height']
                     
-                    ## convert to center coordinates
+                    # convert to center coordinates
                     x_center = x_min + width / 2
                     y_center = y_min + height / 2
                     
-                    ## scale the center coordinates and dimensions
+                    # scale the center coordinates and dimensions
                     x_center_new = x_center * new_width / original_width
                     y_center_new = y_center * new_height / original_height
                     width_new = width * new_width / original_width
@@ -67,10 +94,56 @@ def remove_file_annot(image_folder, annot_folder):
                 os.remove(image_file)
                 os.remove(annot_file)
 
+
+def match_files(image_folder, annot_folder):
+    image_files = sorted(glob.glob(image_folder))
+    annot_files = sorted(glob.glob(annot_folder))
+
+    image_file_names = [Path(file).stem for file in sorted(glob.glob(image_folder))]
+    annot_files_names = [Path(file).stem for file in sorted(glob.glob(annot_folder))]
+
+    # Delete image file without annotation
+    for file in image_files:
+        if Path(file).stem not in annot_files_names:
+            image_file_names.remove(Path(file).stem)
+            os.remove(file)
+
+    # Delete annotation file without image
+    for file in annot_files:
+        if Path(file).stem not in image_file_names:
+            annot_files_names.remove(Path(file).stem)
+            os.remove(file)
+
+    print("Image and annotation match" if image_file_names == annot_files_names else "Image and annotation does not match")
+
             
+def add_annot_info_file(image_folder, annot_folder, original_label, new_label):
+    # Delete image/annotation file if not match
+    match_files(image_folder, annot_folder)
+
+    image_files = sorted(glob.glob(image_folder))
+    annot_files = sorted(glob.glob(annot_folder))
+
+    # Relabel annotation file
+    for (image_file, annot_file) in zip(image_files, annot_files):
+        annotation = []
+        with open(annot_file, "r") as f:
+            labels = [item.strip() for item in f.readlines()]
+            for label in labels:
+                if label.split(' ')[0] == f'{original_label}':
+                    annotation.append(label.replace(f'{original_label}', f'{new_label}', 1))
+
+        if len(annotation) == 0:
+            os.remove(annot_file)
+            os.remove(image_file)
+        else:
+            with open(annot_file, "w") as f:
+                for line in annotation:
+                    f.write(line + "\n")
 
 
 
 if __name__ == "__main__":
     # generate_annotation()
-    remove_file_annot('/Users/jaeh/Downloads/train_img/train_img/*', '/Users/jaeh/Downloads/train_label/train_label/*')
+    # remove_file_annot('/Users/jaeh/Downloads/train_img/train_img/*', '/Users/jaeh/Downloads/train_label/train_label/*')
+    add_annot_info_file('/Users/jaeh/Downloads/bicycle/*', '/Users/jaeh/Downloads/bicycle_annotated/*', 1, 7)
