@@ -3,7 +3,7 @@ import glob
 import os
 from tqdm import tqdm
 from pathlib import Path
-import shutil
+from send2trash import send2trash
 
 
 """
@@ -34,8 +34,10 @@ def generate_annotation(image_parent, annot_parent):
     original_height = 2160
     new_width = 640
     new_height = 640
+    image_num = 0
+    label_count = [0, 0, 0, 0, 0, 0, 0]
 
-    # Get ids of video file from annotation files
+    # Get ids of video folder from annotation files: ['xxxxxxx']
     annot_file_ids = sorted([Path(file).stem.split('_')[1] for file in glob.glob(annot_parent + '/*')])
 
     # Iterate over all video files
@@ -44,34 +46,40 @@ def generate_annotation(image_parent, annot_parent):
         # Load json annotation file
         with open(annot_parent + f'/annotation_{id}.json', encoding = 'utf-8') as f:
             data = json.load(f)
-            # Get frame numbers
-            annot_frame_numbers = [str(value) for i in range(len(data['frames'])) for key, value in data['frames'][i].items() if key == "number"]
+            # Get image file names from annotation: ['frame_xxxx.jpg']
+            annot_frame_numbers = [value for i in range(len(data['frames'])) for key, value in data['frames'][i].items() if key == "image"]
 
-        # Get image files
-        image_files = sorted(glob.glob(image_parent + f'/{id}/*'))
-        image_frames = [Path(file).stem.split('_')[1] for file in image_files]
+        # Get image file names: ['frame_xxxx.jpg']
+        image_files = [os.path.basename(file) for file in sorted(glob.glob(image_parent + f'/{id}/*'))]
         
         # Delete image file if frame is not annotated
-        for frame in image_frames:
-            if frame not in annot_frame_numbers:
-                os.remove(image_parent + f'/{id}/frame_{frame}.jpg')
+        for filename in image_files:
+            if filename not in annot_frame_numbers:
+                print(f"Image file {filename} not annotated. Discarding.")
+                image_files.remove(filename)
+                send2trash(Path(image_parent + f'/{filename}'))
         
         # Create annotation text file
         for frame in data['frames']:
-            if str(frame['number']) in image_frames:
+            # If 'frame_xxxx.jpg' in ['frame_xxxx.jpg']
+            if frame['image'] in image_files:
                 annot = []
 
+                # Get annotation data from data['frames'][i]
                 for annotation in frame['annotations']:
+                    # Coordinates info
                     label = annotation['label']
+
+                    # Class info
                     try:
                         category = annotation_labels[annotation['category']['code']]
+                        label_count[category] += 1
+                        image_num += 1
+                        current_cat = annotation['category']['code']
                     except:
-                        print(f"No category: {annotation['category']['code']}")
-                        try:
-                            os.remove(image_parent + f"/{id}/frame_{frame['number']}.jpg")
-                            continue
-                        except:
-                            continue
+                        # If class not exists in custom labels, skip recording current coordinates
+                        # print(f"No category: {annotation['category']['code']}")
+                        continue
 
                     # Get original coordination
                     x_min = label['x']
@@ -83,7 +91,7 @@ def generate_annotation(image_parent, annot_parent):
                     x_center = x_min + width / 2
                     y_center = y_min + height / 2
                     
-                    # Scale the center coordinates and dimensions
+                    # Scale, normalize the center coordinates and dimensions
                     x_center_new = x_center * new_width / original_width
                     y_center_new = y_center * new_height / original_height
                     width_new = width * new_width / original_width
@@ -96,82 +104,71 @@ def generate_annotation(image_parent, annot_parent):
 
                     annot.append(f"{category} {x_center_norm} {y_center_norm} {width_norm} {height_norm}")
                 
+                # If len(annot) is not 0 -> annotation with custom label exists
+                # save image file as '<label><num>.jpg'
+                # save annotation txt file as '<label><num>.txt'
                 if len(annot) != 0:
-                    if not os.path.exists(image_parent + f'/annotation_{id}'):
-                        os.makedirs(image_parent + f'/annotation_{id}')
-                        with open(image_parent + f"/annotation_{id}/frame_{frame['number']}.txt", "w") as txt:
+                    # Make annotation txt file
+                    with open(image_parent + f"/{image_num}_{current_cat}.txt", "w") as txt:
                             for i in range(len(annot)):
                                 txt.write(f"{annot[i]}\n")
-                    else:
-                        with open(image_parent + f"/annotation_{id}/frame_{frame['number']}.txt", "w") as txt:
-                                for i in range(len(annot)):
-                                    txt.write(f"{annot[i]}\n")
+                    os.rename(image_parent + f"/{id}/{frame['image']}", image_parent + f"/{image_num}_{current_cat}.jpg")
+                # If len(annot) is 0 -> annotation with custom label does not exist
+                # delete image file
+                else:
+                    print(f"No usable annotation with frame. Image discarded: {frame['image']}.")
+                    send2trash(Path(image_parent + f"/{id}/{frame['image']}"))
+
+    with open('D:/label_counts.txt', "w") as label:
+        print("assault: ", label_count[0])
+        print("fainting: ", label_count[1])
+        print("property_damage: ", label_count[2])
+        print("theft: ", label_count[3])
+        print("merchant: ", label_count[4])
+        print("spy_camera: ", label_count[5])
+
+        label.write("assault: ", label_count[0] + '\n')
+        label.write("fainting: ", label_count[1] + '\n')
+        label.write("property_damage: ", label_count[2] + '\n')
+        label.write("theft: ", label_count[3] + '\n')
+        label.write("merchant: ", label_count[4] + '\n')
+        label.write("spy_camera: ", label_count[5] + '\n')
 
 
-def delete_annot_file(image_parent, annot_parent):
-    annot_file_ids = sorted([Path(file).stem.split('_')[1] for file in glob.glob(annot_parent + '/*')])
 
-    for id in tqdm(annot_file_ids):
-        annot_files = sorted(glob.glob(image_parent + f'/annotation_{id}/*'))
-
-        for file in annot_files:
-            filename = Path(file).stem
-            if Path(image_parent + f'/{id}/{filename}.jpg').is_file():
-                continue
-            else:
-                print(f"image : {filename}.jpg does not exist")
-                os.remove(file)
+def test():
+    image_parent = 'C:/Users/hancom09/Downloads/CV_CCTV/CV_Project'
+    send2trash(Path(image_parent + '/frame_4713.jpg'))
 
 
-def match_files(image_folder, annot_folder):
-    image_files = sorted(glob.glob(image_folder))
-    annot_files = sorted(glob.glob(annot_folder))
 
-    image_file_names = [Path(file).stem for file in sorted(glob.glob(image_folder))]
-    annot_files_names = [Path(file).stem for file in sorted(glob.glob(annot_folder))]
+def check_missing_folder(image_parent, annot_parent):
+    count = 0
+    # Get ids of video folder from annotation files: ['xxxxxxx']
+    annot_folder_ids = sorted([Path(file).stem.split('_')[1] for file in glob.glob(annot_parent + '/*')])
 
-    # Delete image file without annotation
-    for file in image_files:
-        if Path(file).stem not in annot_files_names:
-            image_file_names.remove(Path(file).stem)
-            os.remove(file)
+    # Get ids of video folder from video parent folder: ['xxxxxxx']
+    image_folder_ids = sorted(Path(folder).stem for folder in glob.glob(image_parent + '/*'))
 
-    # Delete annotation file without image
-    for file in annot_files:
-        if Path(file).stem not in image_file_names:
-            annot_files_names.remove(Path(file).stem)
-            os.remove(file)
+    # Check image forlder without annotation
+    for img_folder in image_folder_ids:
+        if img_folder not in annot_folder_ids:
+            count += 1
+            print(f'{img_folder} not annotated')
+    
+    # Check annotation file without image folder
+    for annot_folder in annot_folder_ids:
+        if annot_folder not in image_folder_ids:
+            count += 1
+            print(f'{annot_folder} does not have corresponding image folder')
+    
+    if(count == 0):
+        print("Annotation and image folder match")
 
-    print("Image and annotation match" if image_file_names == annot_files_names else "Image and annotation does not match")
-
-            
-def add_annot_info_file(image_folder, annot_folder, original_label, new_label):
-    # Delete image/annotation file if not match
-    match_files(image_folder, annot_folder)
-
-    image_files = sorted(glob.glob(image_folder))
-    annot_files = sorted(glob.glob(annot_folder))
-
-    # Relabel annotation file
-    for (image_file, annot_file) in zip(image_files, annot_files):
-        annotation = []
-        with open(annot_file, "r") as f:
-            labels = [item.strip() for item in f.readlines()]
-            for label in labels:
-                if label.split(' ')[0] == f'{original_label}':
-                    annotation.append(label.replace(f'{original_label}', f'{new_label}', 1))
-
-        if len(annotation) == 0:
-            os.remove(annot_file)
-            os.remove(image_file)
-        else:
-            with open(annot_file, "w") as f:
-                for line in annotation:
-                    f.write(line + "\n")
 
 
 def relabel():
-    annot_files = sorted(glob.glob('D:/Downloads/bicycle_annotated/*'))
+    annot_files = sorted(glob.glob('D:/Downloads/Downloads/bicycle_annotated/*'))
 
     # Relabel annotation file
     for annot_file in annot_files:
@@ -186,38 +183,14 @@ def relabel():
                 f.write(line + "\n")
 
 
-def relocate_image_annot(image_parent, annot_parent):
-    num = 1
-    image_folders = sorted(glob.glob(os.path.join(image_parent, '*')))
-    annot_folders = sorted(glob.glob(os.path.join(annot_parent, '*')))
-
-
-    image_target = 'C:/Users/hancom09/Downloads/'
-    annot_target = 'C:/Users/hancom09/Downloads/'
-    
-    for (image_folder, annot_folder) in zip(image_folders, annot_folders):
-        image_files = sorted(glob.glob(os.path.join(image_folder, '*')))
-        annot_files = sorted(glob.glob(os.path.join(annot_folder, '*')))
-
-        for (image_file, annot_file) in zip(image_files, annot_files):
-            new_image_path = os.path.join(image_target, f'{num}.jpg')
-            new_annot_path = os.path.join(annot_target, f'{num}.txt')
-
-            print(3)
-            os.rename(image_file, new_image_path)
-            os.rename(annot_file, new_annot_path)
-            num += 1
-
 
 if __name__ == "__main__":
-    # generate_annotation('D:/Datasets', 'D:/Datasets/annotation')
+    # generate_annotation('D:/Datasets', 'C:/Users/hancom09/Desktop/annotation')
+    # check_missing_folder('D:/Datasets', 'C:/Users/hancom09/Desktop/annotation')
+    # test()
+    relabel()
 
-    # generate_annotation('C:/Users/hancom09/Downloads/CV_CCTV/CV_Project/test_data', 'C:/Users/hancom09/Downloads/CV_CCTV/CV_Project/test_data/annotation')
 
-    # remove_file_annot('/Users/jaeh/Downloads/train_img/train_img/*', '/Users/jaeh/Downloads/train_label/train_label/*')
+    ## 143401 files, 1312 folders
 
-    # add_annot_info_file('/Users/jaeh/Downloads/bicycle/*', '/Users/jaeh/Downloads/bicycle_annotated/*', 1, 7)
-
-    # relabel()
-
-    relocate_image_annot('C:\\Users/hancom09/Downloads/CV_CCTV/CV_Project/test_data/test_dataset_folder/train/images', 'C:/Users/hancom09/Downloads/CV_CCTV/CV_Project/test_data/test_dataset_folder/train/labels')
+    ## 120250
