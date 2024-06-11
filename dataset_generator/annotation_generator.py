@@ -127,12 +127,12 @@ def generate_annotation(image_parent, annot_parent):
         print("merchant: ", label_count[4])
         print("spy_camera: ", label_count[5])
 
-        label.write("assault: ", label_count[0] + '\n')
-        label.write("fainting: ", label_count[1] + '\n')
-        label.write("property_damage: ", label_count[2] + '\n')
-        label.write("theft: ", label_count[3] + '\n')
-        label.write("merchant: ", label_count[4] + '\n')
-        label.write("spy_camera: ", label_count[5] + '\n')
+        label.write("assault: ", label_count[0], '\n')
+        label.write("fainting: ", label_count[1], '\n')
+        label.write("property_damage: ", label_count[2], '\n')
+        label.write("theft: ", label_count[3], '\n')
+        label.write("merchant: ", label_count[4], '\n')
+        label.write("spy_camera: ", label_count[5], '\n')
 
 
 
