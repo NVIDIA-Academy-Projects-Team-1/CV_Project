@@ -36,14 +36,7 @@ class YOLOVideoTransformer(VideoProcessorBase):
         self.model = YOLOv10('epoch_73_best.pt')
         self.label_counts = defaultdict(int)
         self.start_time = time.time()
-
-    # def recv(self, frame):
-    #     img = frame.to_ndarray(format="rgb")
-    #     results = self.model.predict(source=img, show=False)
-    #     annotated_frame = results[0].plot()  # Annotate the frame
-
-    #     return annotated_frame
-
+        
     def recv(self, frame):
         img = frame.to_ndarray(format="rgb48")
         results = self.model.predict(source=img, show=False)
@@ -55,11 +48,10 @@ class YOLOVideoTransformer(VideoProcessorBase):
 model = YOLOv10('epoch_73_best.pt')
 
 def video_frame_callback(frame):
-    img = frame.to_ndarray(format="rgb24")
-    results = model.predict(source=img, show=False)
-    annotated_frame = results[0].plot()  # Annotate the frame
+    img = frame.to_ndarray(format = "rgb24")
+    result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5])
 
-    # flipped = img[::-1,:,:]
+    annotated_frame = result[0].plot()
     return av.VideoFrame.from_ndarray(annotated_frame, format="rgb24")
 
 
@@ -67,9 +59,7 @@ def video_frame_callback(frame):
 st.write('웹캠 테스트')
 webrtc_ctx = webrtc_streamer(
     key="example",
-    # video_processor_factory=YOLOVideoTransformer,
     video_frame_callback = video_frame_callback,
-    # async_processing = False
 )
 
 # 버튼을 눌렀을 때 페이지 전환

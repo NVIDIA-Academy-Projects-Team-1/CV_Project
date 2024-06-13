@@ -15,8 +15,7 @@ Label information
 3: 절도
 4: 이동상인
 5: 몰카
-6: 자전거 승차
-
+#6: 자전거 승차
 """
 
 annotation_labels = {
