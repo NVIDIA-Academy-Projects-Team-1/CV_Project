@@ -1,3 +1,9 @@
+'''
+    CCTV DETECTION
+'''
+
+
+## MODULE IMPORTS ##
 import streamlit as st
 import datetime 
 import pandas as pd
@@ -6,12 +12,19 @@ import random
 import time 
 import cv2
 import av
+import numpy as np
+import streamlit.components.v1 as components
+import base64
+
+from varname import nameof
 from threading import Thread
 from ultralytics import YOLOv10
 from collections import defaultdict
 from streamlit_webrtc import webrtc_streamer
 
-st.set_page_config(layout='wide',initial_sidebar_state='collapsed')
+
+## STREAMLIT PAGE STYLESHEET ##
+st.set_page_config( layout = 'wide', initial_sidebar_state = 'collapsed')
 
 st.markdown(
     """
@@ -21,7 +34,7 @@ st.markdown(
     }
     </style>
     """
-, unsafe_allow_html=True)
+, unsafe_allow_html = True)
 
 st.markdown(
     """
@@ -30,14 +43,60 @@ st.markdown(
             display: none
         }
     </style>
-""", unsafe_allow_html=True)
+    """
+, unsafe_allow_html = True)
 
-st.header('환영합니다. :red[admin] 님!',divider='rainbow')
-st.subheader('지하철 내에 :blue[이상행동] 탐지')
+st.markdown(
+    """
+    <style>
+        #c459a123 {
+            text-align: center
+        }
+    </style>
+    """
+, unsafe_allow_html = True)
 
 
-with st.container(border=True):
-    ## 영상 객수 추가 하고 싶음 추가 해서 밑에 집어 넣으면 됨
+## GLOBAL FIELD ##
+model = YOLOv10('epoch_73_best.pt')
+
+if 'label_count1' not in st.session_state:
+    st.session_state['label_count1'] = {"폭행" : 0,
+                                       "실신" : 0,
+                                       "기물파손": 0,
+                                       "절도" : 0,
+                                       "이동상인" : 0,
+                                       "몰래카메라": 0}
+
+    st.session_state['label_count2'] = {"폭행" : 0,
+                                       "실신" : 0,
+                                       "기물파손": 0,
+                                       "절도" : 0,
+                                       "이동상인" : 0,
+                                       "몰래카메라": 0}
+
+    st.session_state['label_count3'] = {"폭행" : 0,
+                                       "실신" : 0,
+                                       "기물파손": 0,
+                                       "절도" : 0,
+                                       "이동상인" : 0,
+                                       "몰래카메라": 0}
+    
+label_names = {
+    0: "폭행",
+    1: "실신",
+    2: "기물파손",
+    3: "절도",
+    4: "이동상인",
+    5: "몰래카메라"
+}
+
+
+## STREAMLIT PAGE DEFINITION ##
+st.header('환영합니다. :red[admin] 님!', divider = 'rainbow')
+st.subheader('영상 탐지 현황')
+
+with st.container(border = True):
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -55,61 +114,91 @@ with st.container(border=True):
         image3 = st.empty()
         image3.write('Loading video')
 
+c1, c2, c3 = st.columns([1.5, 1.5, 10])
+with c1:
+    if st.button('웹캠', use_container_width = True):
+        st.switch_page('pages/webcam.py')
 
-if st.button('View results'):
-    st.switch_page('pages/result.py')
-if st.button('Webcam'):
-    st.switch_page('pages/webcam.py')
+with c2:
+    if st.button('탐지 통계', use_container_width = True):
+        st.switch_page('pages/result.py')
+
+with c3:
+    pass
 
 
-model = YOLOv10('epoch_73_best.pt')
-
-
-def prediction(video_path, placeholder):
+## RUN PREDICTION ##
+def prediction(video_path, placeholder, cam_num):
     cap = cv2.VideoCapture(video_path)
+    assault_detected = False
+    fainting_detected = False
+    detections = False
 
     while cap.isOpened():
         ret, frame = cap.read()
+        detected_labels = []
         if not ret:
             break
         
-        results = model.predict(source=frame, show=False)
+        results = model.predict(source = frame, show = False, conf = 0.8)
+
         annotated_frame = results[0].plot() if results else None
+        label4result = results[0].boxes.cls.numpy() if results else []
 
-        for det in result.boxes.data:
-            class_index = int(det[1])  # 라벨 인덱스
-            label = result.names[class_index]
-            if label == 'fainting':
+        if cam_num == "1번 카메라":
+            for label in label4result:
+                st.session_state['label_count1'][label_names[label]] += 1
+        elif cam_num == "2번 카메라":
+            for label in label4result:
+                st.session_state['label_count2'][label_names[label]] += 1
+        elif cam_num == "3번 카메라":
+            for label in label4result:
+                st.session_state['label_count3'][label_names[label]] += 1
+                
+        if np.isin([0, 1], results[0].boxes.cls.numpy()).any():
+            if 0 in results[0].boxes.cls.numpy():
+                assault_detected = True
+                detected_labels.append("폭행")
+            if 1 in results[0].boxes.cls.numpy():
                 fainting_detected = True
+                detected_labels.append("실신")
 
-        
+            if detections:
+                placeholder.image(annotated_frame, channels='RGB', use_column_width = "auto")
 
-        placeholder.image(annotated_frame, channels='RGB', use_column_width = "auto")
+            elif fainting_detected or assault_detected:
+                placeholder.image(annotated_frame, channels='RGB', use_column_width = "auto")
+                play_alarm(cam_num, detected_labels)
+
+            detections = True
         
     cap.release()
 
+
 # fainting 라벨이 감지되었을 때 사운드, 팝업 창을 생성
-def play_alarm():
-    js_code = """
-    <script src="alarm.js"></script>
-    <script>
-    openAlarmWindow();
-    </script>
+def play_alarm(cam_num, labels):
+    audio_file = open('alert.mp3', 'rb').read()
+    js_code = f"""
+        <audio autoplay src="data:audio/mp3;base64,{base64.b64encode(audio_file).decode()}" type="audio/mp3"></audio>
+        <script>
+            document.querySelector('audio').addEventListener('play', function() {{
+                alert("{cam_num}에서 {','.join(labels)}이 감지되었습니다!");
+            }})
+        </script>
     """
-    st.markdown(js_code, unsafe_allow_html=True)
+    return components.html(js_code)
 
-fainting_detected = False
 
-    
+# video_path1 = '실신_test_1.mp4'
+video_path1 = 'frame_4611.jpg'
+# video_path2 = 'aa잡상인_test_1.mp4'
+video_path2 = 'frame_4243.jpg'
+video_path3 = 'aa폭행_test_1.mp4'
 
-## 로그인 후 출력되는 메인 페이지
-video_path1 = '실신_test_1.mp4'
-video_path2 = 'aaa잡상인_test_1.mp4'
-video_path3 = 'aaa폭행_test_1.mp4'
-
-thread_1 = Thread(target = prediction, args = (video_path1, image1, ))
-thread_2 = Thread(target = prediction, args = (video_path2, image2, ))
-thread_3 = Thread(target = prediction, args = (video_path3, image3, ))
+# Spawn, run detection threads
+thread_1 = Thread(target = prediction, args = (video_path1, image1, "1번 카메라", ))
+thread_2 = Thread(target = prediction, args = (video_path2, image2, "2번 카메라", ))
+thread_3 = Thread(target = prediction, args = (video_path3, image3, "3번 카메라", ))
 
 st.runtime.scriptrunner.script_run_context.add_script_run_ctx(thread_1)
 st.runtime.scriptrunner.script_run_context.add_script_run_ctx(thread_2)

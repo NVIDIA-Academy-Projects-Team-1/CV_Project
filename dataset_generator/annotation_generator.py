@@ -15,7 +15,7 @@ Label information
 3: 절도
 4: 이동상인
 5: 몰카
-#6: 자전거 승차
+
 """
 
 annotation_labels = {
@@ -134,13 +134,6 @@ def generate_annotation(image_parent, annot_parent):
         label.write("spy_camera: ", label_count[5], '\n')
 
 
-
-def test():
-    image_parent = 'C:/Users/hancom09/Downloads/CV_CCTV/CV_Project'
-    send2trash(Path(image_parent + '/frame_4713.jpg'))
-
-
-
 def check_missing_folder(image_parent, annot_parent):
     count = 0
     # Get ids of video folder from annotation files: ['xxxxxxx']
@@ -186,10 +179,7 @@ def relabel():
 if __name__ == "__main__":
     # generate_annotation('D:/Datasets', 'C:/Users/hancom09/Desktop/annotation')
     # check_missing_folder('D:/Datasets', 'C:/Users/hancom09/Desktop/annotation')
-    # test()
     relabel()
 
 
     ## 143401 files, 1312 folders
-
-    ## 120250
