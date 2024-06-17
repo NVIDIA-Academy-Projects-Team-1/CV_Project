@@ -43,7 +43,7 @@ model = YOLOv10('epoch_73_best.pt')
 
 def video_frame_callback(frame):
     img = frame.to_ndarray(format = "rgb24")
-    result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5])
+    result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5], device = 0)
 
     annotated_frame = result[0].plot()
     return av.VideoFrame.from_ndarray(annotated_frame, format = "rgb24")
@@ -55,8 +55,14 @@ st.write('웹캠 테스트')
 webrtc_ctx = webrtc_streamer(
     key="example",
     video_frame_callback = video_frame_callback,
+    media_stream_constraints = {
+        "video": {
+            "width" : 1280,
+            "height" : 1080
+        }
+    }
 )
 
 # 버튼을 눌렀을 때 페이지 전환
-if st.button('CCTV로 돌아가기'):
+if st.button('CCTV 확인'):
     st.switch_page('pages/cctv.py')

@@ -58,7 +58,7 @@ st.markdown(
 
 
 ## GLOBAL FIELD ##
-model = YOLOv10('epoch_73_best.pt')
+model = YOLOv10('best.pt')
 
 if 'label_count1' not in st.session_state:
     st.session_state['label_count1'] = {"폭행" : 0,
@@ -133,6 +133,7 @@ def prediction(video_path, placeholder, cam_num):
     assault_detected = False
     fainting_detected = False
     detections = False
+    label_detected = False
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -140,26 +141,30 @@ def prediction(video_path, placeholder, cam_num):
         if not ret:
             break
         
-        results = model.predict(source = frame, show = False, conf = 0.8)
+        results = model.predict(source = frame, show = False, conf = 0.8, device = 0)
 
         annotated_frame = results[0].plot() if results else None
-        label4result = results[0].boxes.cls.numpy() if results else []
+        label4result = results[0].boxes.cls.cpu().numpy() if results else []
 
-        if cam_num == "1번 카메라":
-            for label in label4result:
-                st.session_state['label_count1'][label_names[label]] += 1
-        elif cam_num == "2번 카메라":
-            for label in label4result:
-                st.session_state['label_count2'][label_names[label]] += 1
-        elif cam_num == "3번 카메라":
-            for label in label4result:
-                st.session_state['label_count3'][label_names[label]] += 1
-                
-        if np.isin([0, 1], results[0].boxes.cls.numpy()).any():
-            if 0 in results[0].boxes.cls.numpy():
+
+        if label_detected == False:
+            if cam_num == "1번 카메라":
+                for label in label4result:
+                    st.session_state['label_count1'][label_names[label]] += 1
+            elif cam_num == "2번 카메라":
+                for label in label4result:
+                    st.session_state['label_count2'][label_names[label]] += 1
+            elif cam_num == "3번 카메라":
+                for label in label4result:
+                    st.session_state['label_count3'][label_names[label]] += 1
+            label_detected = True
+
+        if np.isin([0, 1], results[0].boxes.cls.cpu().numpy()).any():
+
+            if 0 in results[0].boxes.cls.cpu().numpy():
                 assault_detected = True
                 detected_labels.append("폭행")
-            if 1 in results[0].boxes.cls.numpy():
+            if 1 in results[0].boxes.cls.cpu().numpy():
                 fainting_detected = True
                 detected_labels.append("실신")
 
@@ -171,12 +176,15 @@ def prediction(video_path, placeholder, cam_num):
                 play_alarm(cam_num, detected_labels)
 
             detections = True
+        else:
+            placeholder.image(annotated_frame, channels='RGB', use_column_width = "auto")
         
     cap.release()
 
 
-# fainting 라벨이 감지되었을 때 사운드, 팝업 창을 생성
+# fainting, assault 라벨이 감지되었을 때 사운드, 팝업 창을 생성
 def play_alarm(cam_num, labels):
+    print("play_alarm called")
     audio_file = open('alert.mp3', 'rb').read()
     js_code = f"""
         <audio autoplay src="data:audio/mp3;base64,{base64.b64encode(audio_file).decode()}" type="audio/mp3"></audio>
@@ -188,12 +196,13 @@ def play_alarm(cam_num, labels):
     """
     return components.html(js_code)
 
+video_path1 = 'frame_4611.jpg'
+video_path2 = 'frame_4243.jpg'
+video_path3 = 'frame_5374.jpg'
 
 # video_path1 = '실신_test_1.mp4'
-video_path1 = 'frame_4611.jpg'
-# video_path2 = 'aa잡상인_test_1.mp4'
-video_path2 = 'frame_4243.jpg'
-video_path3 = 'aa폭행_test_1.mp4'
+# video_path2 = '잡상인_test_1.mp4'
+# video_path3 = '폭행_test_1.mp4'
 
 # Spawn, run detection threads
 thread_1 = Thread(target = prediction, args = (video_path1, image1, "1번 카메라", ))

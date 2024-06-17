@@ -47,6 +47,10 @@ label_count1 = st.session_state.get('label_count1', {})
 label_count2 = st.session_state.get('label_count2', {})
 label_count3 = st.session_state.get('label_count3', {})
 
+print(label_count1)
+print(label_count2)
+print(label_count3)
+
 ## STREAMLIT PAGE DEFINITION ##
 def render_chart(label_counts):
     df = pd.DataFrame(list(label_counts.items()), columns=['종류', '횟수'])
@@ -72,6 +76,13 @@ with st.container(border = True):
         render_chart(label_count3)
 
 # 버튼 눌렀을시 영상 출력 화면으로 돌아가기
-if st.button('CCTV로 돌아가기'):
-    st.session_state.clear()
-    st.switch_page('pages/cctv.py')
+col1, col2, col3 = st.columns([1,1,10])
+with col1:
+    if st.button('CCTV 확인', use_container_width = True):
+        st.session_state.clear()
+        st.switch_page('pages/cctv.py')
+with col2:
+    if st.button('웹캠', use_container_width = True):
+        st.switch_page('pages/webcam.py')
+with col3:
+    pass
