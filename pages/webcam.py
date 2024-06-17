@@ -43,7 +43,8 @@ model = YOLOv10('epoch_73_best.pt')
 
 def video_frame_callback(frame):
     img = frame.to_ndarray(format = "rgb24")
-    result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5], device = 0)
+    # result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5], device = 0)
+    result = model.predict(source = img, show = False, classes = [0, 1, 2, 3, 4, 5])
 
     annotated_frame = result[0].plot()
     return av.VideoFrame.from_ndarray(annotated_frame, format = "rgb24")

@@ -141,7 +141,8 @@ def prediction(video_path, placeholder, cam_num):
         if not ret:
             break
         
-        results = model.predict(source = frame, show = False, conf = 0.8, device = 0)
+        # results = model.predict(source = frame, show = False, conf = 0.8, device = 0)
+        results = model.predict(source = frame, show = False, conf = 0.8)
 
         annotated_frame = results[0].plot() if results else None
         label4result = results[0].boxes.cls.cpu().numpy() if results else []
@@ -198,7 +199,7 @@ def play_alarm(cam_num, labels):
 
 video_path1 = 'frame_4611.jpg'
 video_path2 = 'frame_4243.jpg'
-video_path3 = 'frame_5374.jpg'
+video_path3 = 'frame_5018.jpg'
 
 # video_path1 = '실신_test_1.mp4'
 # video_path2 = '잡상인_test_1.mp4'
