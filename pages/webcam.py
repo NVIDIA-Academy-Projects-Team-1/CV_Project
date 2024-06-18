@@ -9,8 +9,7 @@ import time
 import av
 
 from ultralytics import YOLOv10
-from collections import defaultdict
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, VideoProcessorBase
+from streamlit_webrtc import webrtc_streamer
 
 
 ## STREAMLIT PAGE STYLESHEET ##

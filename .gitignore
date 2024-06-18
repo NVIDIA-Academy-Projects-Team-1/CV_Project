@@ -4,3 +4,4 @@ yolov10
 .venv
 *.mp4
 *.jpg
+firebase_key.json

@@ -5,13 +5,9 @@
 
 ## MODULE IMPORTS ##
 import streamlit as st
-import datetime 
 import pandas as pd
 import altair as alt
-import random
-import time 
 import cv2
-import av
 import numpy as np
 import streamlit.components.v1 as components
 import base64
@@ -19,12 +15,12 @@ import base64
 from varname import nameof
 from threading import Thread
 from ultralytics import YOLOv10
-from collections import defaultdict
-from streamlit_webrtc import webrtc_streamer
+from google.cloud import firestore
+from google.cloud.firestore import Increment
 
 
 ## STREAMLIT PAGE STYLESHEET ##
-st.set_page_config( layout = 'wide', initial_sidebar_state = 'collapsed')
+st.set_page_config(layout = 'wide', initial_sidebar_state = 'collapsed')
 
 st.markdown(
     """
@@ -59,36 +55,16 @@ st.markdown(
 
 ## GLOBAL FIELD ##
 model = YOLOv10('best.pt')
+db = firestore.Client.from_service_account_json(".streamlit/firebase_key.json")
+car_db_ref = db.collection("trains").document("car_1")
 
-if 'label_count1' not in st.session_state:
-    st.session_state['label_count1'] = {"폭행" : 0,
-                                       "실신" : 0,
-                                       "기물파손": 0,
-                                       "절도" : 0,
-                                       "이동상인" : 0,
-                                       "몰래카메라": 0}
-
-    st.session_state['label_count2'] = {"폭행" : 0,
-                                       "실신" : 0,
-                                       "기물파손": 0,
-                                       "절도" : 0,
-                                       "이동상인" : 0,
-                                       "몰래카메라": 0}
-
-    st.session_state['label_count3'] = {"폭행" : 0,
-                                       "실신" : 0,
-                                       "기물파손": 0,
-                                       "절도" : 0,
-                                       "이동상인" : 0,
-                                       "몰래카메라": 0}
-    
 label_names = {
-    0: "폭행",
-    1: "실신",
-    2: "기물파손",
-    3: "절도",
-    4: "이동상인",
-    5: "몰래카메라"
+    0: "assault",
+    1: "fainting",
+    2: "property_damage",
+    3: "theft",
+    4: "merchant",
+    5: "spy_camera"
 }
 
 
@@ -151,13 +127,16 @@ def prediction(video_path, placeholder, cam_num):
         if label_detected == False:
             if cam_num == "1번 카메라":
                 for label in label4result:
-                    st.session_state['label_count1'][label_names[label]] += 1
+                    car_db_ref.update({label_names[label]: Increment(1)})
+
             elif cam_num == "2번 카메라":
                 for label in label4result:
-                    st.session_state['label_count2'][label_names[label]] += 1
+                    car_db_ref.update({label_names[label]: Increment(1)})
+
             elif cam_num == "3번 카메라":
                 for label in label4result:
-                    st.session_state['label_count3'][label_names[label]] += 1
+                    car_db_ref.update({label_names[label]: Increment(1)})
+                    
             label_detected = True
 
         if np.isin([0, 1], results[0].boxes.cls.cpu().numpy()).any():
@@ -197,13 +176,13 @@ def play_alarm(cam_num, labels):
     """
     return components.html(js_code)
 
-video_path1 = 'frame_4611.jpg'
-video_path2 = 'frame_4243.jpg'
-video_path3 = 'frame_5018.jpg'
+# video_path1 = 'frame_4611.jpg'
+# video_path2 = 'frame_4243.jpg'
+# video_path3 = 'frame_5018.jpg'
 
-# video_path1 = '실신_test_1.mp4'
-# video_path2 = '잡상인_test_1.mp4'
-# video_path3 = '폭행_test_1.mp4'
+video_path1 = '실신_test_1.mp4'
+video_path2 = '잡상인_test_1.mp4'
+video_path3 = '폭행_test_1.mp4'
 
 # Spawn, run detection threads
 thread_1 = Thread(target = prediction, args = (video_path1, image1, "1번 카메라", ))

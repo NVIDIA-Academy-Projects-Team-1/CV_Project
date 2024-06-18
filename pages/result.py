@@ -13,8 +13,7 @@ import cv2
 import sys
 
 from threading import Thread
-from ultralytics import YOLOv10
-from collections import defaultdict
+from google.cloud import firestore
 from streamlit_webrtc import webrtc_streamer
 
 
@@ -41,42 +40,62 @@ st.markdown(
     """
 , unsafe_allow_html = True)
 
+# st.markdown("""
+#         <style>
+#         [data-testid="stDataFrameResizable"] {
+#             width: auto;
+#             alignment: center;
+#         }
+#         </style>
+#     """
+# , unsafe_allow_html = True)
+
 
 ## GLOBAL FIELD ##
-label_count1 = st.session_state.get('label_count1', {})
-label_count2 = st.session_state.get('label_count2', {})
-label_count3 = st.session_state.get('label_count3', {})
+db = firestore.Client.from_service_account_json(".streamlit/firebase_key.json")
+car_db_ref = db.collection("trains").document("car_1")
 
-print(label_count1)
-print(label_count2)
-print(label_count3)
+label_count = car_db_ref.get().to_dict()
+class_name = list(label_count.keys())
+test_value = list(label_count.values())
 
-## STREAMLIT PAGE DEFINITION ##
+new_class_names = {'assault':'폭행', 'fainting':'실신', 'property_damage':'기물파손', 'theft':'절도', 'merchant':'잡상인', 'spy_camera':'몰래카메라'}
+class_names_kor = [new_class_names.get(name, name) for name in class_name]
+
+
 def render_chart(label_counts):
-    df = pd.DataFrame(list(label_counts.items()), columns=['종류', '횟수'])
-    st.dataframe(df, hide_index = True)
+    df = pd.DataFrame({'객체': class_names_kor,'총 탐지수': label_counts})
+    
     chart = alt.Chart(df).mark_bar().encode(
-        x = alt.X('종류:N', axis=alt.Axis(labelAngle=0)),
-        y = alt.Y('횟수:Q', scale=alt.Scale(domain=[0,5]))
-    ).properties()
-    st.altair_chart(chart, use_container_width=True)
+        x = alt.X('객체:N', axis = alt.Axis(labelAngle = 0)),
+        y = alt.Y('총 탐지수:Q', axis = alt.Axis(title='총 탐지수'), scale = alt.Scale(domain = [0,max(label_counts) + 1]))
+    ).properties(
+        width = alt.Step(40)  # controls width of bar
+    )
+
+    s1 = dict(selector='th', props=[('text-align', 'center')])
+    s2 = dict(selector='td', props=[('text-align', 'center')])
+    table = df.style.set_table_styles([s1,s2]).hide(axis=0).to_html()     
+    
+    col1, col2, col3 = st.columns([2, 0.3, 10])
+    
+    with col1:
+        st.write(f'{table}', unsafe_allow_html=True)
+        # st.dataframe(df, hide_index = True)
+
+    with col2:
+        pass
+
+    with col3:
+        st.altair_chart(chart, use_container_width = True)
 
 
-st.header('CCTV 기반 감지된 이상현상',divider = 'rainbow')
+st.header('CCTV 기반 감지된 이상현상', divider = 'rainbow')
 with st.container(border = True):
-    sec1, sec2, sec3 = st.columns([3, 3, 3])
-    with sec1:
-        st.write('첫번쨰 CCTV')
-        render_chart(label_count1)
-    with sec2:
-        st.write('두번쨰 CCTV')
-        render_chart(label_count2)
-    with sec3:
-        st.write('세번쨰 CCTV')
-        render_chart(label_count3)
+    render_chart(test_value)
 
 # 버튼 눌렀을시 영상 출력 화면으로 돌아가기
-col1, col2, col3 = st.columns([1,1,10])
+col1, col2, col3 = st.columns([1.5, 1.5, 10])
 with col1:
     if st.button('CCTV 확인', use_container_width = True):
         st.session_state.clear()
