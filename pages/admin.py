@@ -1,10 +1,21 @@
+'''
+    ADMIN PAGE FOR NET STATISTICS 
+'''
+
+
+## MODULE IMPORTS ##
 import streamlit as st
 import pandas as pd
 import altair as alt
-from google.cloud import firestore
 import io
+import matplotlib.pyplot as plt
+
+from google.cloud import firestore
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference
+from tempfile import NamedTemporaryFile
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker
+
 
 st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 
@@ -22,14 +33,17 @@ st.markdown(
     <style>
         [data-testid="collapsedControl"]{
             display: none
-        }
+        }S
     </style>
     """, unsafe_allow_html=True)
 
+
 db = firestore.Client.from_service_account_json(".streamlit/firebase_key.json")
+
 
 label_counts = {}
 docs = db.collection("trains").get()
+
 for doc in docs:
     data = doc.to_dict()
     for key, value in data.items():
@@ -45,7 +59,7 @@ new_class_names = {
     'assault': '폭행',
     'fainting': '실신',
     'property_damage': '기물파손',
-    'theft': '도둑',
+    'theft': '절도',
     'merchant': '잡상인',
     'spy_camera': '몰래카메라'
 }
@@ -61,8 +75,6 @@ def render_chart(label_counts):
         width=alt.Step(40)
     )
     
-    # df_style = df.style.set_properties(**{'text-align': 'center'})
-
     s1 = dict(selector='th', props=[('text-align', 'center')])
     s2 = dict(selector='td', props=[('text-align', 'center')])
     table = df.style.set_table_styles([s1,s2]).hide(axis=0).to_html()
@@ -80,34 +92,73 @@ def render_chart(label_counts):
 
 st.header('CCTV 기반 감지된 이상현상', divider='rainbow')
 
+
 with st.container(border=True):
     render_chart(test_value)
 
-# 저장 버튼 클릭 시 실행되는 동작
-if st.button('저장'):
-    # 데이터프레임 생성
-    df = pd.DataFrame({'라벨 종류': class_names_kor, '횟수': test_value})
-    
-    # 엑셀 파일 생성
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
+
+# 엑셀 파일 생성
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine='openpyxl') as writer:
+    x = 0
+    for i in range(0, len(docs)):
+        data = docs[i].to_dict()
+        df = pd.DataFrame({'라벨 종류': class_names_kor, '횟수': data.values()})
+        total_df = pd.DataFrame({'라벨 종류': class_names_kor, '횟수': test_value})
+        if i == 0:
+            x = 7
+        else:
+            x += 15
+            
+        df.to_excel(writer, index=False, sheet_name='Sheet1', startrow = x)
+
+        if i + 2 == len(docs) + 1:
+            total_df.to_excel(writer, index=False, sheet_name='Sheet1', startrow = 15*len(docs)+7)
+        
+        # 차트 생성 및 설정
+        chart1 = BarChart()
+        chart1.style = 10
+        chart1.title = '라벨별 횟수'
+        chart1.x_axis.delete = False
+        chart1.y_axis.delete = False
+        chart1.y_axis.majorUnit = 1
 
         # 엑셀 워크북과 워크시트 가져오기
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
+        worksheet['G1'] = '결과 보고서'
+        
+        ## car_1 일떄 x = 7 
+        ## car_2 일떄 x = 15
+        ## len(df) = 6
 
-        # 차트 생성 및 설정
-        chart = BarChart()
-        chart.title = '라벨별 횟수'
-        data = Reference(worksheet, min_col=2, min_row=1, max_row=len(df))
-        categories = Reference(worksheet, min_col=1, min_row=2, max_row=len(df))
-        chart.add_data(data, titles_from_data=True)
-        chart.set_categories(categories)
+        data_range = len(df) + x + 1
+        data = Reference(worksheet, min_col=2, min_row=x+1, max_row=data_range, max_col=2)
+        categories = Reference(worksheet, min_col=1, min_row=x+2, max_row=data_range, max_col=1)
+        chart1.add_data(data, titles_from_data=True)
+        chart1.set_categories(categories)
 
-        # 엑셀 워크시트에 차트 삽입
-        worksheet.add_chart(chart, 'E2')
+        chart2 = BarChart()
+        chart2.style = 10
+        chart2.title = '라밸별 횟수'
+        chart2.x_axis.delete = False
+        chart2.y_axis.delete = False
+        chart2.y_axis.majorUnit = 1
 
-    # 파일 포인터를 처음으로 되돌리고 다운로드 버튼 생성
-    output.seek(0)
-    st.download_button(label="엑셀 파일 다운로드", data=output, file_name='result.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        t_data=Reference(worksheet, min_col=2, min_row=15*len(docs)+8, max_row=15*len(docs)+14)
+        t_categories = Reference(worksheet,min_col=1, min_row=x+2, max_row=data_range)
+        chart2.add_data(t_data,titles_from_data=True)
+        chart2.set_categories(t_categories)
+
+
+        # 엑셀 워크시트에 차트 삽입            
+        worksheet.add_chart(chart1, f'F{x+1}')
+        worksheet.add_chart(chart2,f'F{15*len(docs)+8}')
+
+            
+# 파일 포인터를 처음으로 되돌리고 다운로드 버튼 생성
+output.seek(0)
+st.download_button(label="저장", data=output, file_name='result.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+# 가장 마지막으로 할 스타일 : 각 데이터 표 위에 이름 달아주기, 그래프 포함

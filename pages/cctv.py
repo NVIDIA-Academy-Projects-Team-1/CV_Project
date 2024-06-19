@@ -176,13 +176,13 @@ def play_alarm(cam_num, labels):
     """
     return components.html(js_code)
 
-# video_path1 = 'frame_4611.jpg'
-# video_path2 = 'frame_4243.jpg'
-# video_path3 = 'frame_5018.jpg'
+video_path1 = 'frame_4611.jpg'
+video_path2 = 'frame_4243.jpg'
+video_path3 = 'frame_5018.jpg'
 
-video_path1 = '실신_test_1.mp4'
-video_path2 = '잡상인_test_1.mp4'
-video_path3 = '폭행_test_1.mp4'
+# video_path1 = '실신_test_1.mp4'
+# video_path2 = '잡상인_test_1.mp4'
+# video_path3 = '폭행_test_1.mp4'
 
 # Spawn, run detection threads
 thread_1 = Thread(target = prediction, args = (video_path1, image1, "1번 카메라", ))

@@ -57,8 +57,8 @@ webrtc_ctx = webrtc_streamer(
     video_frame_callback = video_frame_callback,
     media_stream_constraints = {
         "video": {
-            "width" : 1280,
-            "height" : 1080
+            "width" : 3840,
+            "height" : 2160
         }
     }
 )

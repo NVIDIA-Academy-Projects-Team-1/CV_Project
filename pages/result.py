@@ -53,11 +53,29 @@ st.markdown(
 
 ## GLOBAL FIELD ##
 db = firestore.Client.from_service_account_json(".streamlit/firebase_key.json")
-car_db_ref = db.collection("trains").document("car_1")
+def fetch_data(car_name):
+    car_db_ref = db.collection("trains").document(car_name)
+    label_count = car_db_ref.get().to_dict()
+    return label_count
 
-label_count = car_db_ref.get().to_dict()
-class_name = list(label_count.keys())
-test_value = list(label_count.values())
+car_data = {
+    'car_1': fetch_data('car_1'),
+    'car_2': fetch_data('car_2'),
+    'car_3': fetch_data('car_3')
+}
+
+label_counts = {}
+docs = db.collection("trains").get()
+for doc in docs:
+    data = doc.to_dict()
+    for key, value in data.items():
+        if key in label_counts:
+            label_counts[key] += value
+        else:
+            label_counts[key] = value
+
+class_name = list(label_counts.keys())
+test_value = list(label_counts.values())
 
 new_class_names = {'assault':'폭행', 'fainting':'실신', 'property_damage':'기물파손', 'theft':'절도', 'merchant':'잡상인', 'spy_camera':'몰래카메라'}
 class_names_kor = [new_class_names.get(name, name) for name in class_name]
@@ -94,8 +112,10 @@ st.header('CCTV 기반 감지된 이상현상', divider = 'rainbow')
 with st.container(border = True):
     render_chart(test_value)
 
+    
+
 # 버튼 눌렀을시 영상 출력 화면으로 돌아가기
-col1, col2, col3 = st.columns([1.5, 1.5, 10])
+col1, col2, col3, col4= st.columns([1.5, 1.5, 1.5, 10])
 with col1:
     if st.button('CCTV 확인', use_container_width = True):
         st.session_state.clear()
@@ -104,4 +124,13 @@ with col2:
     if st.button('웹캠', use_container_width = True):
         st.switch_page('pages/webcam.py')
 with col3:
+    if st.button("데이더 리셋", use_container_width = True):
+        for doc in db.collection("trains").stream():
+            fields = db.collection("trains").document(doc.id).get().to_dict()
+            updated_fields = {field: 0 for field in fields}
+
+            db.collection("trains").document(doc.id).update(updated_fields)
+        st.success("데이터가 초기화되었습니다.")
+        st.rerun()
+with col4:
     pass
