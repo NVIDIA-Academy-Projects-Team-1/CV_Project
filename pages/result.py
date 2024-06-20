@@ -17,6 +17,14 @@ from google.cloud import firestore
 from streamlit_webrtc import webrtc_streamer
 
 
+## AUTHORIZATION CHECK ##
+# try:
+#     if st.session_state['logged_in_car'] == False:
+#         st.switch_page('app.py')
+# except:
+#     st.switch_page('app.py')
+
+
 ## STREAMLIT PAGE STYLESHEET ##
 st.set_page_config(layout = 'wide',initial_sidebar_state = 'collapsed')
 
@@ -40,39 +48,16 @@ st.markdown(
     """
 , unsafe_allow_html = True)
 
-# st.markdown("""
-#         <style>
-#         [data-testid="stDataFrameResizable"] {
-#             width: auto;
-#             alignment: center;
-#         }
-#         </style>
-#     """
-# , unsafe_allow_html = True)
-
 
 ## GLOBAL FIELD ##
 db = firestore.Client.from_service_account_json(".streamlit/firebase_key.json")
+
 def fetch_data(car_name):
     car_db_ref = db.collection("trains").document(car_name)
     label_count = car_db_ref.get().to_dict()
     return label_count
 
-car_data = {
-    'car_1': fetch_data('car_1'),
-    'car_2': fetch_data('car_2'),
-    'car_3': fetch_data('car_3')
-}
-
-label_counts = {}
-docs = db.collection("trains").get()
-for doc in docs:
-    data = doc.to_dict()
-    for key, value in data.items():
-        if key in label_counts:
-            label_counts[key] += value
-        else:
-            label_counts[key] = value
+label_counts = fetch_data("car_1")
 
 class_name = list(label_counts.keys())
 test_value = list(label_counts.values())
@@ -108,7 +93,7 @@ def render_chart(label_counts):
         st.altair_chart(chart, use_container_width = True)
 
 
-st.header('CCTV 기반 감지된 이상현상', divider = 'rainbow')
+st.header('CCTV 이상행동 탐지 통계', divider = 'rainbow')
 with st.container(border = True):
     render_chart(test_value)
 

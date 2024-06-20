@@ -12,11 +12,18 @@ import numpy as np
 import streamlit.components.v1 as components
 import base64
 
-from varname import nameof
 from threading import Thread
 from ultralytics import YOLOv10
 from google.cloud import firestore
 from google.cloud.firestore import Increment
+
+
+## AUTHORIZATION CHECK ##
+# try:
+#     if st.session_state['logged_in_car'] == False:
+#         st.switch_page('app.py')
+# except:
+#     st.switch_page('app.py')
 
 
 ## STREAMLIT PAGE STYLESHEET ##
@@ -69,7 +76,7 @@ label_names = {
 
 
 ## STREAMLIT PAGE DEFINITION ##
-st.header('환영합니다. :red[admin] 님!', divider = 'rainbow')
+st.header('환영합니다. 관리자 님!', divider = 'rainbow')
 st.subheader('영상 탐지 현황')
 
 with st.container(border = True):

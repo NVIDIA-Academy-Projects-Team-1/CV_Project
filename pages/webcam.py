@@ -12,6 +12,14 @@ from ultralytics import YOLOv10
 from streamlit_webrtc import webrtc_streamer
 
 
+## AUTHORIZATION CHECK ##
+# try:
+#     if st.session_state['logged_in_car'] == False:
+#         st.switch_page('app.py')
+# except:
+#     st.switch_page('app.py')
+
+
 ## STREAMLIT PAGE STYLESHEET ##
 st.set_page_config(layout = 'wide', initial_sidebar_state = 'collapsed')
 
