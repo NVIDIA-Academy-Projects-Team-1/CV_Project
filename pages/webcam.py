@@ -7,6 +7,7 @@
 import streamlit as st
 import time
 import av
+import cv2
 
 from ultralytics import YOLOv10
 from streamlit_webrtc import webrtc_streamer
@@ -59,17 +60,32 @@ def video_frame_callback(frame):
 
 ## STREAMLIT PAGE DEFINITION ##
 # 웹캠 스트리머 실행
-st.write('웹캠 테스트')
-webrtc_ctx = webrtc_streamer(
-    key="example",
-    video_frame_callback = video_frame_callback,
-    media_stream_constraints = {
-        "video": {
-            "width" : 3840,
-            "height" : 2160
-        }
-    }
-)
+# st.write('웹캠 테스트')
+# webrtc_ctx = webrtc_streamer(
+#     key="example",
+#     video_frame_callback = video_frame_callback,
+#     media_stream_constraints = {
+#         "video": {
+#             "width" : 3840,
+#             "height" : 2160
+#         }
+#     }
+# )
+
+st.header("웹캠 테스트")
+run = st.checkbox('시작')
+image_window = st.image([])
+camera = cv2.VideoCapture(0)
+
+while run:
+    _, frame = camera.read()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    result = model.predict(source = frame, show = False, classes = [0, 1, 2, 3, 4, 5])
+    annotated_frame = result[0].plot()
+
+    image_window.image(annotated_frame)
+
 
 # 버튼을 눌렀을 때 페이지 전환
 if st.button('CCTV 확인'):
